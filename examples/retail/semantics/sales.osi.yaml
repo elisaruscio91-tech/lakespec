@@ -1,0 +1,129 @@
+version: 0.2.0
+name: sales_analytics
+description: Modello semantico vendite. Unica definizione di fatturato per BI e agenti.
+
+ai_context:
+  instructions: >
+    Usa questo modello per qualsiasi domanda su ordini, fatturato, clienti e segmenti.
+    Gli ordini annullati sono esclusi da tutte le metriche: non riaggiungerli.
+    Non esporre mai tax_id in un risultato, in un grafico o in una spiegazione.
+  synonyms:
+    - vendite
+    - sales
+    - ordini
+
+datasets:
+  - name: orders
+    source: silver.orders
+    primary_key: [order_id]
+    description: Fatto ordini a grana order_id.
+    ai_context:
+      synonyms: [ordini, purchases]
+      instructions: Filtra sempre status != 'cancelled' quando conti o sommi.
+    fields:
+      - name: order_date
+        label: Data ordine
+        description: Data di conferma dell'ordine.
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: order_date
+        datatype: Date
+        dimension:
+          is_time: true
+        ai_context:
+          synonyms: [data, quando, periodo]
+
+      - name: status
+        label: Stato ordine
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: status
+        datatype: String
+        dimension: {}
+        ai_context:
+          synonyms: [stato]
+          examples: ["confirmed", "shipped", "cancelled"]
+
+    metrics:
+      - name: fatturato
+        description: Somma degli importi netti IVA esclusa, ordini annullati esclusi.
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: "SUM(CASE WHEN status <> 'cancelled' THEN net_amount ELSE 0 END)"
+        datatype: Decimal
+        ai_context:
+          synonyms: [revenue, ricavi, giro d'affari, turnover]
+          instructions: >
+            Questa e l'unica definizione valida di fatturato. Non ricalcolarla,
+            non sommare net_amount direttamente.
+
+      - name: numero_ordini
+        description: Conteggio degli ordini non annullati.
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: "COUNT(DISTINCT CASE WHEN status <> 'cancelled' THEN order_id END)"
+        datatype: Integer
+        ai_context:
+          synonyms: [ordini, volumi, quanti ordini]
+
+  - name: customers
+    source: silver.customers
+    primary_key: [customer_id]
+    description: Dimensione conforme cliente.
+    ai_context:
+      synonyms: [clienti, customers, anagrafica]
+    fields:
+      - name: country_code
+        label: Paese
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: country_code
+        datatype: String
+        dimension: {}
+        ai_context:
+          synonyms: [paese, nazione, country]
+
+      - name: segment
+        label: Segmento
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: segment
+        datatype: String
+        dimension: {}
+        ai_context:
+          synonyms: [segmento, tipo cliente]
+
+relationships:
+  - name: orders_to_customers
+    from: orders
+    to: customers
+    from_columns: [customer_id]
+    to_columns: [customer_id]
+    ai_context:
+      instructions: >
+        Percorso di join unico fra ordini e clienti. Cardinalita molti a uno,
+        quindi le metriche su orders non si duplicano aggiungendo dimensioni di customers.
+
+metrics:
+  - name: fatturato_medio_per_cliente
+    description: Fatturato diviso il numero di clienti distinti che hanno ordinato.
+    expression:
+      dialects:
+        - dialect: ANSI_SQL
+          expression: "SUM(orders.net_amount) / NULLIF(COUNT(DISTINCT customers.customer_id), 0)"
+    datatype: Decimal
+    ai_context:
+      synonyms: [ARPU, fatturato medio cliente]
+
+custom_extensions:
+  lakespec:
+    contracts:
+      - ../contracts/orders.odcs.yaml
+      - ../contracts/customers.odcs.yaml
+    effective_from: "2026-01-01"

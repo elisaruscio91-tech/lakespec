@@ -1,0 +1,106 @@
+# Canonical mapping between workbook columns and standard keys.
+# This file is the single source of truth for the Excel <-> YAML round-trip.
+# Columns are matched case-insensitively, after stripping accents and spaces.
+
+version: 1
+
+sheets:
+
+  _tables:
+    description: One row per table. Object-level metadata.
+    columns:
+      table:            { target: odcs, path: "schema[].name", required: true }
+      physical_name:    { target: odcs, path: "schema[].physicalName"}
+      business_name:    { target: odcs, path: "schema[].businessName"}
+      description:      { target: odcs, path: "schema[].description"}
+      granularity:      { target: odcs, path: "schema[].dataGranularityDescription"}
+      layer:            { target: odcs, path: "schema[].customProperties[lakespec.layer]"}
+      domain:           { target: odcs, path: "domain"}
+      owner:            { target: odcs, path: "team[].username", note: "role defaults to owner" }
+      tags:             { target: odcs, path: "schema[].tags", list_separator: "," }
+      osi_source:       { target: osi,  path: "datasets[].source"}
+      osi_synonyms:     { target: osi,  path: "datasets[].ai_context.synonyms", list_separator: "," }
+
+  _relationships:
+    description: >
+      Composite foreign keys only. Single-column keys are expressed in the
+      "relation" column of each table sheet and emitted at property level.
+    columns:
+      from_table:       { target: odcs, path: "schema[].relationships[].from", required: true }
+      from_columns:     { target: odcs, path: "schema[].relationships[].from", required: true, list_separator: "," }
+      to_table:         { target: odcs, path: "schema[].relationships[].to", required: true }
+      to_columns:       { target: odcs, path: "schema[].relationships[].to", required: true, list_separator: "," }
+      cardinality:      { target: odcs, path: "schema[].relationships[].customProperties[cardinality]"}
+      osi_name:         { target: osi,  path: "relationships[].name"}
+
+  _metrics:
+    description: >
+      Filled in by the business, not by engineering. A metric with no owner
+      and no definition is rejected by `lakespec validate`.
+    columns:
+      metric:           { target: osi, path: "metrics[].name", required: true }
+      dataset:          { target: osi, path: "scope", note: "empty means model-scoped metric" }
+      description:      { target: osi, path: "metrics[].description", required: true }
+      sql:              { target: osi, path: "metrics[].expression.dialects[ANSI_SQL]", required: true }
+      datatype:         { target: osi, path: "metrics[].datatype"}
+      synonyms:         { target: osi, path: "metrics[].ai_context.synonyms", list_separator: "," }
+      instructions:     { target: osi, path: "metrics[].ai_context.instructions"}
+      owner:            { target: osi, path: "metrics[].custom_extensions.lakespec.owner"}
+      effective_from:   { target: osi, path: "metrics[].custom_extensions.lakespec.effective_from"}
+
+  "<table name>":
+    description: >
+      One sheet per table, named exactly as the `table` value in _tables.
+      One row per column.
+    columns:
+      field:            { target: odcs, path: "properties[].name", required: true }
+      physical_name:    { target: odcs, path: "properties[].physicalName"}
+      logical_type:     { target: odcs, path: "properties[].logicalType", required: true }
+      physical_type:    { target: odcs, path: "properties[].physicalType"}
+      description:      { target: odcs, path: "properties[].description"}
+      key:              { target: odcs, path: "properties[].primaryKey", note: "see key_encoding below" }
+      required:         { target: odcs, path: "properties[].required", type: boolean }
+      unique:           { target: odcs, path: "properties[].unique", type: boolean }
+      relation:         { target: odcs, path: "properties[].relationships[].to", note: "shorthand table.column" }
+      classification:   { target: odcs, path: "properties[].classification", enum: [public, internal, restricted] }
+      critical:         { target: odcs, path: "properties[].criticalDataElement", type: boolean }
+      partition:        { target: odcs, path: "properties[].partitioned", note: "integer means partitionKeyPosition" }
+      allowed_values:   { target: odcs, path: "properties[].enum", note: "value=label pairs, comma separated" }
+      examples:         { target: odcs, path: "properties[].examples", list_separator: "," }
+      source_objects:   { target: odcs, path: "properties[].transformSourceObjects", list_separator: "," }
+      transform_sql:    { target: odcs, path: "properties[].transformLogic"}
+      transform_note:   { target: odcs, path: "properties[].transformDescription"}
+      quality:          { target: odcs, path: "properties[].quality", note: "see quality_dsl below" }
+      is_time:          { target: osi,  path: "datasets[].fields[].dimension.is_time", type: boolean }
+      label:            { target: osi,  path: "datasets[].fields[].label"}
+      synonyms:         { target: osi,  path: "datasets[].fields[].ai_context.synonyms", list_separator: "," }
+
+key_encoding:
+  description: The `key` column accepts a small vocabulary instead of a boolean.
+  values:
+    pk:    { primaryKey: true, primaryKeyPosition: 1 }
+    pk1:   { primaryKey: true, primaryKeyPosition: 1 }
+    pk2:   { primaryKey: true, primaryKeyPosition: 2 }
+    pk3:   { primaryKey: true, primaryKeyPosition: 3 }
+    fk:    { note: "declare the target in the `relation` column" }
+    "":    { primaryKey: false }
+
+quality_dsl:
+  description: >
+    A deliberately tiny expression language, so a business user can write a test
+    without learning YAML. Anything richer belongs in the YAML directly.
+  examples:
+    "not null":        { metric: nullValues, mustBe: 0, dimension: completeness }
+    "unique":          { metric: duplicateCount, mustBe: 0, dimension: uniqueness }
+    "> 0":             { metric: minimum, mustBeGreaterThan: 0, dimension: accuracy }
+    "between 0 100":   { metric: range, mustBeBetween: [0, 100], dimension: accuracy }
+    "rows > 1000":     { metric: rowCount, mustBeGreaterThan: 1000, dimension: completeness }
+
+round_trip:
+  description: >
+    Every generated workbook carries a hidden sheet `_lakespec` with the commit
+    the export was taken from. On import, if HEAD has moved, lakespec performs a
+    three-way merge against that base commit and reports conflicts instead of
+    overwriting. The YAML in git is the source of truth; the workbook is a checkout.
+  base_sheet: _lakespec
+  base_fields: [contract_commit, exported_at, exported_by, lakespec_version]

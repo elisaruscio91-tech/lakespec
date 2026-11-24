@@ -1,0 +1,89 @@
+apiVersion: v3.1.0
+kind: DataContract
+id: retail-customers
+name: customers
+version: 1.1.0
+status: active
+domain: sales
+tenant: acme
+description:
+  purpose: Customer master data, the conformed dimension for every sales model.
+  usage: Grain is customer_id. Country code is ISO 3166-1 alpha-2.
+
+tags: [sales, dimension, master-data]
+
+schema:
+  - id: customers_obj
+    name: customers
+    physicalName: customers
+    logicalType: object
+    physicalType: table
+    businessName: Anagrafica clienti
+    dataGranularityDescription: One row per customer_id.
+
+    properties:
+      - id: customer_id_prop
+        name: customer_id
+        physicalName: customer_id
+        logicalType: string
+        physicalType: varchar(36)
+        description: Identificativo univoco del cliente.
+        primaryKey: true
+        primaryKeyPosition: 1
+        required: true
+        unique: true
+        classification: restricted
+        criticalDataElement: true
+
+      - id: country_code_prop
+        name: country_code
+        physicalName: country_code
+        logicalType: string
+        physicalType: varchar(2)
+        description: Paese di fatturazione, ISO 3166-1 alpha-2.
+        required: true
+        classification: public
+        examples: ["IT", "DE", "FR"]
+
+      - id: segment_prop
+        name: segment
+        physicalName: segment
+        logicalType: string
+        physicalType: varchar(16)
+        description: Segmento commerciale assegnato dal CRM.
+        required: false
+        classification: internal
+        enum:
+          - value: retail
+            label: Retail
+          - value: smb
+            label: PMI
+          - value: enterprise
+            label: Enterprise
+
+      - id: tax_id_prop
+        name: tax_id
+        physicalName: tax_id
+        logicalType: string
+        physicalType: varchar(16)
+        description: Partita IVA o codice fiscale. Dato personale, non esporre agli agenti.
+        required: false
+        classification: restricted
+        criticalDataElement: true
+        encryptedName: tax_id_encrypted
+        customProperties:
+          - property: lakespec.pii
+            value: true
+          - property: lakespec.agent_visible
+            value: false
+
+    quality:
+      - metric: duplicateCount
+        mustBe: 0
+        dimension: uniqueness
+        schedule: 0 5 * * *
+        scheduler: cron
+
+    customProperties:
+      - property: lakespec.layer
+        value: silver

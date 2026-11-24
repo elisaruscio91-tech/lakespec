@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lakespec/lakespec/schemas/conflict-report.schema.json",
+  "title": "lakespec conflict report",
+  "description": "What the documentation claims, what the data actually is, and where the two disagree. Produced by `lakespec reconcile`. Deterministic profiling plus optional LLM-extracted claims, never a merged contract.",
+  "type": "object",
+  "required": ["lakespec_version", "generated_at", "target", "findings"],
+  "additionalProperties": false,
+  "properties": {
+    "lakespec_version": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "target": {
+      "type": "object",
+      "required": ["adapter", "object"],
+      "properties": {
+        "adapter": { "type": "string", "examples": ["duckdb", "spark_dbt", "postgres_pglake", "databricks"] },
+        "object": { "type": "string", "examples": ["silver.orders"] },
+        "rows_profiled": { "type": "integer", "minimum": 0 },
+        "sampled": { "type": "boolean" }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "severity", "subject", "observed"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "type_mismatch",
+              "nullability_mismatch",
+              "undocumented_column",
+              "documented_column_missing",
+              "key_candidate_not_declared",
+              "declared_key_not_unique",
+              "foreign_key_orphans",
+              "enum_value_outside_allowed",
+              "classification_missing",
+              "classification_contradicted",
+              "metric_definition_divergent",
+              "granularity_mismatch",
+              "doc_stale"
+            ]
+          },
+          "severity": { "type": "string", "enum": ["blocking", "warning", "info"] },
+          "subject": {
+            "type": "object",
+            "required": ["object"],
+            "properties": {
+              "object": { "type": "string" },
+              "property": { "type": "string" },
+              "metric": { "type": "string" }
+            }
+          },
+          "claimed": {
+            "description": "What a human artefact asserts. Always carries where it came from.",
+            "type": "object",
+            "properties": {
+              "value": {},
+              "source": {
+                "type": "object",
+                "required": ["kind", "ref"],
+                "properties": {
+                  "kind": { "type": "string", "enum": ["contract", "workbook", "document", "catalog", "human"] },
+                  "ref": { "type": "string", "description": "Contract path, or a deep link into the document, e.g. sharepoint://.../dizionario.docx#p12" },
+                  "extracted_by": { "type": "string", "enum": ["deterministic", "llm"] },
+                  "model": { "type": "string" },
+                  "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "quote": { "type": "string", "maxLength": 300 }
+                }
+              }
+            }
+          },
+          "observed": {
+            "description": "What the data actually is. Deterministic profiling only, never inferred.",
+            "type": "object",
+            "properties": {
+              "value": {},
+              "null_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+              "distinct_count": { "type": "integer", "minimum": 0 },
+              "violating_rows": { "type": "integer", "minimum": 0 },
+              "violating_examples": { "type": "array", "maxItems": 5, "items": {} },
+              "method": { "type": "string", "enum": ["full_scan", "sample"] }
+            }
+          },
+          "proposal": {
+            "description": "The suggested contract change. Never applied automatically.",
+            "type": "object",
+            "properties": {
+              "patch": { "type": "string", "description": "A unified diff against the contract file." },
+              "compatibility": { "type": "string", "enum": ["backward", "forward", "breaking", "semantic"] },
+              "requires_human_ratification": { "type": "boolean", "const": true },
+              "rationale": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "blocking": { "type": "integer" },
+        "warning": { "type": "integer" },
+        "info": { "type": "integer" },
+        "documentation_accuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Share of documented claims the data confirms. The single number to show a manager."
+        }
+      }
+    }
+  }
+}

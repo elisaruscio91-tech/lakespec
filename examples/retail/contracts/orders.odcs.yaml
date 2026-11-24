@@ -1,0 +1,127 @@
+apiVersion: v3.1.0
+kind: DataContract
+id: retail-orders
+name: orders
+version: 1.0.0
+status: active
+domain: sales
+tenant: acme
+description:
+  purpose: Order-level fact table serving sales reporting and the sales semantic model.
+  usage: One row per order line, grain is order_id. Use silver.orders, not bronze.raw_orders.
+  limitations: Cancelled orders are retained with status = cancelled, filter them out yourself.
+
+tags: [sales, fact, gold-ready]
+
+schema:
+  - id: orders_obj
+    name: orders
+    physicalName: orders
+    logicalType: object
+    physicalType: table
+    businessName: Ordini di vendita
+    description: Ogni riga e un ordine confermato o annullato.
+    dataGranularityDescription: One row per order_id.
+    tags: [sales, fact]
+
+    properties:
+      - id: order_id_prop
+        name: order_id
+        physicalName: order_id
+        logicalType: string
+        physicalType: varchar(36)
+        description: Identificativo univoco dell'ordine, generato dal gestionale.
+        primaryKey: true
+        primaryKeyPosition: 1
+        required: true
+        unique: true
+        classification: internal
+        criticalDataElement: true
+        examples: ["b3f1c2a0-1111-4a7e-9a11-0c1d2e3f4a5b"]
+        transformSourceObjects: [bronze.raw_orders]
+        transformLogic: "raw_orders.id"
+        transformDescription: Passthrough dal gestionale, trimmed e lowercased.
+
+      - id: customer_id_prop
+        name: customer_id
+        physicalName: customer_id
+        logicalType: string
+        physicalType: varchar(36)
+        description: Cliente che ha effettuato l'ordine.
+        required: true
+        classification: restricted
+        criticalDataElement: true
+        transformSourceObjects: [bronze.raw_orders]
+        transformLogic: "raw_orders.cust_id"
+        relationships:
+          - to: customers.customer_id
+            type: foreignKey
+            customProperties:
+              - property: cardinality
+                value: many-to-one
+        quality:
+          - metric: nullValues
+            mustBe: 0
+            dimension: completeness
+
+      - id: order_date_prop
+        name: order_date
+        physicalName: order_date
+        logicalType: date
+        physicalType: date
+        description: Data di conferma dell'ordine, fuso Europe/Rome.
+        required: true
+        partitioned: true
+        partitionKeyPosition: 1
+        classification: public
+        examples: ["2026-01-14", "2026-03-02"]
+        transformSourceObjects: [bronze.raw_orders]
+        transformLogic: "cast(raw_orders.confirmed_at at time zone 'Europe/Rome' as date)"
+
+      - id: status_prop
+        name: status
+        physicalName: status
+        logicalType: string
+        physicalType: varchar(16)
+        description: Stato dell'ordine nel ciclo di vita.
+        required: true
+        classification: public
+        enum:
+          - value: confirmed
+            label: Confermato
+          - value: shipped
+            label: Spedito
+          - value: cancelled
+            label: Annullato
+
+      - id: net_amount_prop
+        name: net_amount
+        physicalName: net_amount
+        logicalType: number
+        physicalType: decimal(18,2)
+        description: Importo netto IVA esclusa, al netto degli sconti riga.
+        required: true
+        classification: internal
+        criticalDataElement: true
+        transformSourceObjects: [bronze.raw_orders, bronze.raw_order_discounts]
+        transformLogic: "raw_orders.gross_amount - coalesce(raw_order_discounts.amount, 0)"
+        transformDescription: >
+          Lo sconto vive in una tabella separata nel gestionale. Join su order_id,
+          le righe senza sconto danno 0.
+        quality:
+          - metric: nullValues
+            mustBe: 0
+            dimension: completeness
+
+    quality:
+      - metric: rowCount
+        mustBeGreaterThan: 1000
+        dimension: completeness
+        schedule: 0 5 * * *
+        scheduler: cron
+
+    customProperties:
+      - property: lakespec.layer
+        value: silver
+      - property: lakespec.source_system
+        value: gestionale-erp
