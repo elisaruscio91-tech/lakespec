@@ -61,3 +61,28 @@ as the protocol described in `mcp/context.py`. Compiling a model-scoped metric
 `plan.joins`, including fan-out detection so adding a dimension from a
 one-to-many side does not silently double a sum. That is the hard part of this
 project and the part most worth getting right slowly.
+
+## Planned: the data-product layer (ODPS)
+
+lakespec covers contracts (ODCS) and semantics (OSI / Apache Ossie). The layer
+between them is the data product: the
+[Open Data Product Standard](https://github.com/bitol-io/open-data-product-standard)
+from Bitol, which builds on ODCS. It declares input, output and management
+ports, and each port points to an ODCS contract.
+
+Why it fits: the dependency graph of the whole set of products is derived from
+the YAML instead of drawn by hand, so a diagram for non-technical readers is a
+renderer over data lakespec would already have. It also adds nothing outside
+the standards, which keeps the "no new format" rule intact.
+
+Not started. Open questions: how ports map onto the logical plan, and whether
+the graph belongs in `plan/` or in a separate emitter. Note that "ODPS" is also
+the acronym of an unrelated Open Data Product *Specification*; this means the
+Bitol one.
+
+## Standards status
+
+OSI is pre-1.0 and its schema can still change. The example pins `version:
+0.1.1`, the last released version. Treat Apache Ossie support as a moving
+target and test a round trip before relying on a third-party tool importing the
+file.

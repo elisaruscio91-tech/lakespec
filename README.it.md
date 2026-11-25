@@ -3,7 +3,7 @@
 **Un contratto. Da lì escono pipeline, catalogo e contesto per gli agenti.**
 
 lakespec compila un contratto dati [ODCS](https://bitol.io) più un modello
-semantico [OSI](https://github.com/open-semantic-interchange/OSI) in ciò che il
+semantico [OSI](https://ossie.apache.org) in ciò che il
 tuo lakehouse esegue davvero — e nel contesto governato che leggono i tuoi
 agenti AI. Apache-2.0, self-hosted, nessun account richiesto.
 
@@ -32,7 +32,7 @@ tenere sincronizzato perché c'è una cosa sola.
   scheduler, nessuna interfaccia, nessuno storage. Emette file che esegui dove
   già esegui le cose.
 - **Non è un formato nuovo.** ODCS è uno standard della Linux Foundation
-  valutato *Adopt* sul Technology Radar di Thoughtworks; OSI è alla Apache
+  valutato *Adopt* sul Technology Radar di Thoughtworks; OSI (ora Apache Ossie, in incubazione) è alla Apache
   Foundation con Snowflake, dbt Labs, Salesforce, Google e Databricks nel
   working group. Inventare un formato sarebbe il modo più rapido di rendere
   tutto questo non adottabile.

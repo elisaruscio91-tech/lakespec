@@ -3,7 +3,7 @@
 **One contract. Pipelines, catalog and agent context fall out of it.**
 
 lakespec compiles an [ODCS](https://bitol.io) data contract plus an
-[OSI](https://github.com/open-semantic-interchange/OSI) semantic model into
+[OSI](https://ossie.apache.org) semantic model into
 whatever your lakehouse actually runs — and into the governed context your AI
 agents read. Apache-2.0, self-hosted, no account required.
 
@@ -55,7 +55,7 @@ keep in sync because there is only one thing.
 - **Not a platform.** It is a compiler. It has no runtime, no scheduler, no UI,
   no storage. It emits files you run where you already run things.
 - **Not a new format.** ODCS is a Linux Foundation standard rated *Adopt* on the
-  Thoughtworks Technology Radar; OSI is at the Apache Foundation with Snowflake,
+  Thoughtworks Technology Radar; OSI (now Apache Ossie, incubating) is at the Apache Foundation with Snowflake,
   dbt Labs, Salesforce, Google and Databricks in the working group. Inventing a
   format would be the fastest way to make this unadoptable.
 - **Not a GUI pipeline builder.** A pipeline drawn with a mouse cannot be
@@ -244,7 +244,7 @@ If you think the mapping is wrong, [say so](../../issues). That is what this
 stage is for.
 
 Roadmap: Excel round-trip → `spark_dbt` → MCP server → `postgres_pglake` →
-`databricks` → semantic query compiler.
+`databricks` → semantic query compiler → ODPS data-product layer.
 
 ## Docs
 

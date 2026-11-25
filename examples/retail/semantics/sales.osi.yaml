@@ -1,4 +1,4 @@
-version: 0.2.0
+version: 0.1.1
 name: sales_analytics
 description: Modello semantico vendite. Unica definizione di fatturato per BI e agenti.
 
